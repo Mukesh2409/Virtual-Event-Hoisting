@@ -93,3 +93,23 @@ Refer to `DEPLOYMENT.md` for detailed deployment instructions.
 ## License
 
 This project is licensed under the MIT License.
+
+Organiser Home Page
+![image](https://github.com/user-attachments/assets/a6c5bda8-39fd-40cc-adc1-c32ad77e8754)
+
+Organiser Dashboard
+![image](https://github.com/user-attachments/assets/29939e92-a79e-4fc1-8601-e3639f1b3f06)
+
+Creating Event
+![image](https://github.com/user-attachments/assets/16f52e02-c9f7-4fd8-8ee6-561544329c3d)
+
+upcomming Events
+![image](https://github.com/user-attachments/assets/8b545650-a116-45a6-b2f5-e2d8ddad0aec)
+
+
+
+
+
+
+
+
