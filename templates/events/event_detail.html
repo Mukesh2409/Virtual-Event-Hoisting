@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ event.title }} - Virtual Events Platform{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Event Details -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            {% if event.banner_image %}
+                <img src="{{ event.banner_image }}" class="card-img-top" alt="{{ event.title }}" style="max-height: 300px; object-fit: cover;">
+            {% endif %}
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h1 class="card-title mb-0">{{ event.title }}</h1>
+                    {% if user.is_authenticated and user == event.organizer %}
+                        <div class="btn-group">
+                            <a href="{% url 'event_update' event.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            <a href="{% url 'event_delete' event.pk %}" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-trash"></i> Delete
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <span class="badge bg-primary">{{ event.get_attendee_count }} Attendees</span>
+                    <span class="badge bg-secondary">{{ event.get_session_count }} Sessions</span>
+                    {% if event.is_ongoing %}
+                        <span class="badge bg-success">Ongoing</span>
+                    {% elif event.has_ended %}
+                        <span class="badge bg-danger">Ended</span>
+                    {% else %}
+                        <span class="badge bg-info">Upcoming</span>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <p class="text-muted">
+                        <i class="fas fa-calendar-alt"></i> {{ event.start_date|date:"F d, Y - H:i" }} to {{ event.end_date|date:"F d, Y - H:i" }}
+                    </p>
+                    <p class="text-muted">
+                        <i class="fas fa-user"></i> Organized by: {{ event.organizer.username }}
+                    </p>
+                    {% if event.max_attendees %}
+                        <p class="text-muted">
+                            <i class="fas fa-users"></i> Maximum attendees: {{ event.max_attendees }}
+                        </p>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    <h5>About this event</h5>
+                    <p>{{ event.description|linebreaks }}</p>
+                </div>
+                
+                <!-- Sessions section -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4>Sessions</h4>
+                        {% if user.is_authenticated and user == event.organizer %}
+                            <a href="{% url 'session_create' event.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-plus"></i> Add Session
+                            </a>
+                        {% endif %}
+                    </div>
+                    
+                    {% if sessions %}
+                        <div class="list-group">
+                            {% for session in sessions %}
+                                <div class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <h5 class="mb-1">{{ session.title }}</h5>
+                                        <small class="text-muted">{{ session.start_time|date:"H:i" }} - {{ session.end_time|date:"H:i" }}</small>
+                                    </div>
+                                    <p class="mb-1">{{ session.description|truncatechars:100 }}</p>
+                                    {% if session.speaker %}
+                                        <small class="text-muted">Speaker: {{ session.speaker }}</small>
+                                    {% endif %}
+                                    
+                                    <div class="mt-2">
+                                        {% if session.is_ongoing and is_registered %}
+                                            <a href="{% url 'join_session' session.id %}" class="btn btn-success btn-sm">
+                                                <i class="fas fa-video"></i> Join Live
+                                            </a>
+                                        {% elif session.is_upcoming %}
+                                            <span class="badge bg-info">Starts in {{ session.start_time|timeuntil }}</span>
+                                        {% elif session.has_ended %}
+                                            <span class="badge bg-secondary">Ended</span>
+                                        {% endif %}
+                                        
+                                        <a href="{% url 'session_detail' session.id %}" class="btn btn-outline-primary btn-sm">
+                                            Details
+                                        </a>
+                                        
+                                        {% if user.is_authenticated and user == event.organizer %}
+                                            <a href="{% url 'session_update' session.id %}" class="btn btn-outline-secondary btn-sm">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'session_delete' session.id %}" class="btn btn-outline-danger btn-sm">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> No sessions have been added to this event yet.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Registration Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Registration</h5>
+            </div>
+            <div class="card-body">
+                {% if not user.is_authenticated %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Please <a href="{% url 'login' %}?next={{ request.path }}">login</a> to register for this event.
+                    </div>
+                {% elif is_registered %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i> You are registered for this event.
+                    </div>
+                    <form method="post" action="{% url 'cancel_registration' registration.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="fas fa-times"></i> Cancel Registration
+                        </button>
+                    </form>
+                {% elif registration and registration.status == 'pending' %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-clock"></i> Your registration is pending approval.
+                    </div>
+                {% elif registration and registration.status == 'cancelled' %}
+                    <div class="alert alert-secondary">
+                        <i class="fas fa-ban"></i> Your registration was cancelled.
+                    </div>
+                    <a href="{% url 'register_for_event' event.id %}" class="btn btn-primary w-100">
+                        <i class="fas fa-user-plus"></i> Register Again
+                    </a>
+                {% elif event.is_full %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-circle"></i> This event is at capacity.
+                    </div>
+                {% elif event.has_ended %}
+                    <div class="alert alert-secondary">
+                        <i class="fas fa-calendar-times"></i> This event has ended.
+                    </div>
+                {% else %}
+                    <p>Join this event to participate in sessions and interact with other attendees.</p>
+                    <a href="{% url 'register_for_event' event.id %}" class="btn btn-primary w-100">
+                        <i class="fas fa-user-plus"></i> Register for this Event
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Event Details Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Event Details</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Start Date
+                        <span>{{ event.start_date|date:"M d, Y - H:i" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        End Date
+                        <span>{{ event.end_date|date:"M d, Y - H:i" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Sessions
+                        <span class="badge bg-primary rounded-pill">{{ event.get_session_count }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Attendees
+                        <span class="badge bg-primary rounded-pill">{{ event.get_attendee_count }}</span>
+                    </li>
+                    {% if event.max_attendees %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Capacity
+                            <span class="badge bg-secondary rounded-pill">{{ event.max_attendees }}</span>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Share Card -->
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Share this Event</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-around">
+                    <a href="#" class="text-decoration-none text-primary">
+                        <i class="fab fa-facebook fa-2x"></i>
+                    </a>
+                    <a href="#" class="text-decoration-none text-info">
+                        <i class="fab fa-twitter fa-2x"></i>
+                    </a>
+                    <a href="#" class="text-decoration-none text-success">
+                        <i class="fab fa-whatsapp fa-2x"></i>
+                    </a>
+                    <a href="#" class="text-decoration-none text-secondary">
+                        <i class="fas fa-envelope fa-2x"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ session.title }} - {{ session.event.title }} - Virtual Events Platform{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'event_list' %}">Events</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'event_detail' session.event.id %}">{{ session.event.title }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'session_list' session.event.id %}">Sessions</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ session.title }}</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <!-- Session Details -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">{{ session.title }}</h1>
+                <div>
+                    {% if user.is_authenticated and user == session.event.organizer %}
+                        <a href="{% url 'session_update' session.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <a href="{% url 'session_delete' session.id %}" class="btn btn-sm btn-outline-danger">
+                            <i class="fas fa-trash"></i> Delete
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    {% if session.is_ongoing %}
+                        <span class="badge bg-success">Live Now</span>
+                    {% elif session.is_upcoming %}
+                        <span class="badge bg-info">Upcoming (Starts in {{ session.start_time|timeuntil }})</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Ended ({{ session.end_time|timesince }} ago)</span>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <p class="text-muted">
+                        <i class="fas fa-calendar-alt"></i> {{ session.start_time|date:"F d, Y" }}
+                    </p>
+                    <p class="text-muted">
+                        <i class="fas fa-clock"></i> {{ session.start_time|date:"H:i" }} - {{ session.end_time|date:"H:i" }}
+                    </p>
+                    {% if session.speaker %}
+                        <p class="text-muted">
+                            <i class="fas fa-user"></i> Speaker: {{ session.speaker }}
+                        </p>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    <h5>Session Description</h5>
+                    <p>{{ session.description|linebreaks }}</p>
+                </div>
+                
+                <div class="d-grid gap-2 mt-4">
+                    {% if session.is_ongoing %}
+                        <a href="{% url 'join_session' session.id %}" class="btn btn-success">
+                            <i class="fas fa-video"></i> Join Live Stream
+                        </a>
+                    {% elif session.is_upcoming %}
+                        <button class="btn btn-outline-primary" disabled>
+                            <i class="fas fa-clock"></i> Stream will be available when the session starts
+                        </button>
+                    {% else %}
+                        <button class="btn btn-outline-secondary" disabled>
+                            <i class="fas fa-calendar-times"></i> Session has ended
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Related Sessions -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Other Sessions in this Event</h5>
+            </div>
+            <div class="list-group list-group-flush">
+                {% for related_session in session.event.sessions.all %}
+                    {% if related_session.id != session.id %}
+                        <a href="{% url 'session_detail' related_session.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ related_session.title }}</h6>
+                                <small>{{ related_session.start_time|date:"M d, H:i" }}</small>
+                            </div>
+                            <p class="mb-1">{{ related_session.description|truncatechars:80 }}</p>
+                            {% if related_session.is_ongoing %}
+                                <span class="badge bg-success">Live Now</span>
+                            {% elif related_session.is_upcoming %}
+                                <span class="badge bg-info">Upcoming</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Ended</span>
+                            {% endif %}
+                        </a>
+                    {% endif %}
+                {% empty %}
+                    <div class="list-group-item">No other sessions in this event.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Event Information Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Event Information</h5>
+            </div>
+            <div class="card-body">
+                <h5>{{ session.event.title }}</h5>
+                <p>{{ session.event.description|truncatechars:150 }}</p>
+                <p class="text-muted">
+                    <i class="fas fa-calendar-alt"></i> {{ session.event.start_date|date:"M d, Y" }} to {{ session.event.end_date|date:"M d, Y" }}
+                </p>
+                <a href="{% url 'event_detail' session.event.id %}" class="btn btn-outline-primary w-100 mt-2">
+                    <i class="fas fa-info-circle"></i> View Event Details
+                </a>
+            </div>
+        </div>
+        
+        <!-- Registration Status -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Registration Status</h5>
+            </div>
+            <div class="card-body">
+                {% if not user.is_authenticated %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Please <a href="{% url 'login' %}?next={{ request.path }}">login</a> to register for this event.
+                    </div>
+                {% else %}
+                {% with reg=registration %}
+                {% if reg and reg.status == 'confirmed' %}
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle"></i> You are registered for this event.
+                            </div>
+                            {% if session.is_ongoing %}
+                                <a href="{% url 'join_session' session.id %}" class="btn btn-success w-100">
+                                    <i class="fas fa-video"></i> Join Live Stream
+                                </a>
+                            {% elif session.is_upcoming %}
+                                <button class="btn btn-outline-primary w-100" disabled>
+                                    <i class="fas fa-clock"></i> Stream will be available when the session starts
+                                </button>
+                            {% endif %}
+                        {% elif reg and reg.status == 'pending' %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-clock"></i> Your registration is pending approval.
+                            </div>
+                        {% elif reg and reg.status == 'cancelled' %}
+                            <div class="alert alert-secondary">
+                                <i class="fas fa-ban"></i> Your registration was cancelled.
+                            </div>
+                            <a href="{% url 'register_for_event' session.event.id %}" class="btn btn-primary w-100">
+                                <i class="fas fa-user-plus"></i> Register Again
+                            </a>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> You are not registered for this event.
+                            </div>
+                            <a href="{% url 'register_for_event' session.event.id %}" class="btn btn-primary w-100">
+                                <i class="fas fa-user-plus"></i> Register for this Event
+                            </a>
+                        {% endif %}
+                    {% endwith %}
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Calendar Integration -->
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Add to Calendar</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="#" class="btn btn-outline-primary">
+                        <i class="fab fa-google"></i> Google Calendar
+                    </a>
+                    <a href="#" class="btn btn-outline-primary">
+                        <i class="fas fa-calendar-alt"></i> iCal/Outlook
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

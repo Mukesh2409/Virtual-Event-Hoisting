@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+
+{% block title %}Live: {{ session.title }} - Virtual Events Platform{% endblock %}
+
+{% block extra_css %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/stream-controls.css' %}">
+
+<style>
+    .video-container {
+        position: relative;
+        padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        height: 0;
+        overflow: hidden;
+        background-color: #000;
+        border-radius: 8px;
+    }
+    
+    .video-container video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+    
+    .chat-container {
+        height: 400px;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+    
+    .chat-message {
+        margin-bottom: 10px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        max-width: 80%;
+    }
+    
+    .chat-message-self {
+        background-color: #d1ecf1;
+        margin-left: auto;
+    }
+    
+    .chat-message-other {
+        background-color: #e9ecef;
+    }
+    
+    .chat-input-container {
+        display: flex;
+    }
+    
+    .chat-input {
+        flex: 1;
+        margin-right: 10px;
+    }
+    
+    .participants-list {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .participant-item {
+        padding: 8px 15px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .live-indicator {
+        background-color: #dc3545;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.8rem;
+        margin-bottom: 10px;
+    }
+    
+    .live-indicator-dot {
+        height: 8px;
+        width: 8px;
+        background-color: white;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+        animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+        0% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.5;
+        }
+        100% {
+            opacity: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'event_list' %}">Events</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'event_detail' event.id %}">{{ event.title }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'session_detail' session.id %}">{{ session.title }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Live Stream</li>
+    </ol>
+</nav>
+
+<div class="live-indicator">
+    <span class="live-indicator-dot"></span> LIVE
+</div>
+
+<h1 class="mb-3">{{ session.title }}</h1>
+
+<div class="row">
+    <!-- Main Content Area - Video Stream -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-body p-0">
+                <div class="video-container">
+                    <video id="localVideo" autoplay muted></video>
+                    <video id="remoteVideo" autoplay></video>
+                    
+                    <div class="stream-controls">
+                        <button id="muteAudioBtn" class="btn" title="Toggle Microphone">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        <button id="muteVideoBtn" class="btn" title="Toggle Camera">
+                            <i class="fas fa-video"></i>
+                        </button>
+                        <button id="shareScreenBtn" class="btn btn-success" title="Share Screen">
+                            <i class="fas fa-desktop"></i>
+                        </button>
+                        <button id="leaveBtn" class="btn btn-danger" title="Leave Session">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">About this Session</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Time:</strong> {{ session.start_time|date:"F d, Y - H:i" }} to {{ session.end_time|date:"H:i" }}</p>
+                {% if session.speaker %}
+                    <p><strong>Speaker:</strong> {{ session.speaker }}</p>
+                {% endif %}
+                <p>{{ session.description|linebreaks }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar - Chat and Participants -->
+    <div class="col-lg-4">
+        <!-- Chat Panel -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Live Chat</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="chat-container">
+                    <div id="chatMessages" class="chat-messages">
+                        <!-- Chat messages will be populated here -->
+                    </div>
+                    <div class="chat-input-container p-2">
+                        <input type="text" id="chatInput" class="form-control chat-input" placeholder="Type your message...">
+                        <button id="sendMessageBtn" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Participants Panel -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Participants</h5>
+            </div>
+            <div class="card-body">
+                <div id="participantsList" class="participants-list">
+                    <!-- Participants will be populated here -->
+                    <div class="participant-item">
+                        <i class="fas fa-user-circle me-2"></i>
+                        <span class="participant-name">{{ user.username }} (You)</span>
+                        <span class="badge bg-primary ms-2">You</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<script src="{% static 'js/webrtc.js' %}"></script>
+<script src="{% static 'js/chat.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Pass a boolean directly from Django to JavaScript
+        const isOrganizer = {% if request.user.id == session.event.organizer.id %}true{% else %}false{% endif %};
+        
+        console.log("Is organizer:", isOrganizer);
+        
+        // Initialize WebRTC with the isOrganizer parameter
+        initWebRTC('{{ session.room_name }}', '{{ user.username }}', isOrganizer);
+        
+        // Initialize Chat
+        const sessionId = '{{ session.id }}';
+        initChat('{{ session.room_name }}', '{{ user.username }}', sessionId);
+    });
+</script>
+{% endblock %}

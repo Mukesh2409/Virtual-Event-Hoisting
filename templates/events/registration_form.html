@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}Register for {{ event.title }} - Virtual Events Platform{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'event_list' %}">Events</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'event_detail' event.id %}">{{ event.title }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Registration</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0">Register for Event</h2>
+            </div>
+            <div class="card-body">
+                <h4 class="mb-3">{{ event.title }}</h4>
+                
+                <div class="mb-4">
+                    <p><strong>Date:</strong> {{ event.start_date|date:"F d, Y" }} to {{ event.end_date|date:"F d, Y" }}</p>
+                    <p><strong>Organizer:</strong> {{ event.organizer.username }}</p>
+                    {% if event.max_attendees %}
+                        <p><strong>Capacity:</strong> {{ event.get_attendee_count }} / {{ event.max_attendees }}</p>
+                    {% endif %}
+                </div>
+                
+                <div class="alert alert-info mb-4">
+                    <p class="mb-0">
+                        <i class="fas fa-info-circle"></i> 
+                        By registering, you will gain access to all sessions within this event. You can join live streams when sessions are active.
+                    </p>
+                </div>
+                
+                <form method="post" action="{% url 'register_for_event' event.id %}">
+                    {% csrf_token %}
+                    
+                    {% if form.errors %}
+                        <div class="alert alert-danger">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                    <p class="mb-0">{{ error }}</p>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in form.non_field_errors %}
+                                <p class="mb-0">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'event_detail' event.id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check"></i> Confirm Registration
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
